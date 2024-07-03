@@ -1,3 +1,5 @@
+import { config } from "dotenv";
+config({ path: ".env" });
 import fs from "fs";
 import mongoose from "mongoose";
 import { Builder, By, until } from "selenium-webdriver";
