@@ -1,0 +1,158 @@
+/* dark mode */
+/* Dark Mode Styles */
+body {
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  background-color: #242424; /* Dark background */
+  color: #eee; /* Light text */
+}
+main {
+  /* border: 2px #444444 solid; */
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  /* padding: 0.5rem; */
+  border-radius: 8px;
+  gap: 0.5rem;
+  max-height: 95vh;
+}
+
+input {
+  background-color: #444444;
+  border-width: 0;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border-color: transparent;
+  color: #eee;
+  font-size: large;
+}
+
+input:focus {
+  outline: none;
+}
+
+.novel-grid {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 0.5rem;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding: 0.5rem;
+}
+
+.novel-grid-item {
+  position: relative;
+  display: flex; /* Arrange items horizontally */
+  height: max-content;
+  border-radius: 10px; /* Rounded corners for card effect */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  border: 2px #444444 solid;
+  width: 100%;
+  overflow: hidden;
+  min-height: 140px;
+}
+
+.novel-grid-item img {
+  width: 100px; /* Adjust image width as needed */
+  height: auto; /* Maintain aspect ratio */
+  aspect-ratio: 1;
+}
+
+.novel-grid-item-wrapper {
+  display: flex;
+  width: 100%;
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.novel-grid-item-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem; /* Add padding around text */
+  flex-grow: 1; /* Allow text area to expand */
+}
+
+.novel-grid-item-title {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Align title and author */
+  gap: 0;
+}
+
+.novel-grid-item-title-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  width: fit-content;
+  word-break: keep-all;
+  @media (max-width: 768px) {
+    font-size: large;
+    max-height: 48px;
+    overflow-y: scroll;
+  }
+}
+
+.novel-grid-item-title-author {
+  font-size: 0.9rem;
+  color: white;
+}
+
+.novel-grid-item-genres {
+  display: flex;
+  flex-wrap: wrap; /* Allow genres to wrap if needed */
+  gap: 0.5rem; /* Spacing between genres */
+  width: 100%;
+  @media (max-width: 768px) {
+    height: max-content;
+    height: 25px;
+    overflow-x: scroll;
+  }
+}
+
+.novel-grid-item-genres span {
+  display: flex;
+  padding: 0.3rem 0.6rem;
+  border-radius: 20px; /* Rounded corners for genre tags */
+  height: fit-content;
+  font-size: 0.8rem;
+  background-color: #444444;
+  text-align: center;
+  @media (max-width: 768px) {
+  }
+}
+
+.novel-grid-item-ranking {
+  padding: 0.5rem;
+  font-size: large;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    margin-left: 0;
+  }
+}
+
+.novel-grid-item-ranking div {
+  width: fit-content;
+  padding: 0.5rem;
+  aspect-ratio: 1;
+  text-align: center;
+  position: relative;
+  background-color: #444444;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.novel-grid-item-ranking span {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: small;
+  word-break: keep-all;
+  width: 100%;
+  transform: translateY(-50%) translateX(20%);
+}
