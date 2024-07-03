@@ -5,6 +5,8 @@ import mongoose from "mongoose";
 import { Builder, By, until } from "selenium-webdriver";
 import Novel from "./models/novel-model";
 import Options from "./models/options-model";
+
+const browserType = "chrome";
 export function connect(callback: () => any) {
   const url =
     "mongodb+srv://aessam:MKljWgtzxgMKZcUt@cluster0.fya7kby.mongodb.net/sh-trending?retryWrites=true&w=majority";
@@ -144,7 +146,7 @@ async function scrapeWebsite(pages: number) {
   try {
     let counter = 1;
     for (let page = 1; page < pages + 1; page++) {
-      const driver = await new Builder().forBrowser("chrome").build();
+      const driver = await new Builder().forBrowser(browserType).build();
 
       const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${page}`;
       await driver.get(url);
