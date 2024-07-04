@@ -8,16 +8,15 @@ import Options from "./models/options-model";
 
 const browserType = "chrome";
 export function connect(callback: () => any) {
-  const url =
-    "mongodb+srv://aessam:MKljWgtzxgMKZcUt@cluster0.fya7kby.mongodb.net/sh-trending?retryWrites=true&w=majority";
-  mongoose.connect(url).catch((err) => {
+  if (!process.env.DATABASE_URL) throw new Error("No database url");
+  mongoose.connect(process.env.DATABASE_URL).catch((err) => {
     console.error(err);
     process.exit(1);
   });
 
   // Execute the callback when the connection is established
   mongoose.connection.on("connected", () => {
-    console.info("Connected to database", "database");
+    console.info("Connected to database");
     callback();
   });
 }
@@ -39,18 +38,18 @@ interface IScrapedNovel extends Omit<INovel, "rankings"> {
 
 const uploadJSONtoDB = async () => {
   const { novels, updatedAt } = await getNovelsFromJSON();
-  // let c = 1;
-  // for (let novel of novels) {
-  //   try {
-  //     let novel_: any = { ...novel };
-  //     delete novel_?._id;
-  //     const doc = await Novel.create(novel_);
-  //     console.log(`${novel.title} uploaded ${c}/${novels.length}`);
-  //     c++;
-  //   } catch (e) {
-  //     console.log(e);
-  //   }
-  // }
+  let c = 1;
+  for (let novel of novels) {
+    try {
+      let novel_: any = { ...novel };
+      delete novel_?._id;
+      const doc = await Novel.create(novel_);
+      console.log(`${novel.title} uploaded ${c}/${novels.length}`);
+      c++;
+    } catch (e) {
+      console.log(e);
+    }
+  }
   const options = Options.create({ name: "main", lastUpdated: updatedAt });
   return;
 };
@@ -120,21 +119,25 @@ const updateNovelToDB = async (
     console.log(
       `${novelExists.title} was already been on trending before. Updaing...`
     );
-    const novelDoc = await Novel.findByIdAndUpdate(novelExists._id, {
-      $push: { rankings: { rank: scrapedNovel.ranking, on: dateNow } },
-    });
+    const novelDoc = await Novel.findOneAndUpdate(
+      { title: novelExists.title },
+      {
+        $push: { rankings: { rank: scrapedNovel.ranking, on: dateNow } },
+      }
+    );
   } else {
     novel = {
       ...scrapedNovel,
       rankings: [{ rank: scrapedNovel.ranking, on: dateNow }],
     };
     delete (novel as any).ranking;
+    delete (novel as any)._id;
     novels.push(novel);
     console.log(
       `This is '${novel.title}' first time one trending. Adding to Database...`
     );
     const doc = await Novel.create(novel);
-    novel._id = doc._id;
+    novel._id = doc._id.toString();
     return novelExists;
   }
   return;
@@ -220,6 +223,7 @@ const main = async () => {
   updateUpdatedNow(dateNow);
   let counter = 1;
   for (let scrapedNovel of scrapedNovels) {
+    console.log(`Working on ${scrapedNovel.title}`);
     updateNovelToDB(novels["novels"], scrapedNovel, dateNow);
     console.log(`Updated ${counter}/100`);
     counter++;
@@ -228,9 +232,75 @@ const main = async () => {
 };
 
 connect(async () => {
-  main().catch((err) => {
-    console.error(err);
-    fs.appendFileSync("log.txt", `${Date.now()} ${err.message}` + "\n");
-    process.exit();
-  });
+  // await test();
+  // process.exit(1);
+  main()
+    .catch((err) => {
+      console.error(err);
+      fs.appendFileSync("log.txt", `${Date.now()} ${err.message}` + "\n");
+      process.exit();
+    })
+    .finally(() => {
+      process.exit();
+    });
 });
+
+const test = async () => {
+  const noveldocs: INovel[] = await Novel.find({});
+  const testDuplicates = () => {
+    let duplicates = 0;
+    noveldocs.map((novel) => {
+      const rankings = novel.rankings;
+      if (rankings.length < 2) return;
+      console.log(
+        `${novel.title} has ${rankings.length}: ${rankings
+          .map(
+            (rank) => `${rank.rank} on ${new Date(rank.on).toLocaleString()}`
+          )
+          .join(" and ")}`
+      );
+      let index = 0;
+      for (let rank of rankings) {
+        const rankingsWithoutRank = rankings.splice(index, 1);
+        const similarRank = rankingsWithoutRank.find(
+          (r) => r.rank === rank.rank
+        );
+        if (
+          similarRank &&
+          new Date(similarRank.on).getDay() === new Date(rank.on).getDay()
+        )
+          console.log(
+            `${novel.title} has rank ${rank.rank} on ${new Date(
+              rank.on
+            ).getDate()} and ${similarRank.rank} on ${new Date(
+              similarRank.on
+            ).getDate()} duplicated!`
+          );
+        duplicates++;
+        index++;
+      }
+    });
+    console.log(duplicates);
+  };
+
+  const testAnyToday = async () => {
+    let count = 0;
+    noveldocs.map((novel) => {
+      const rankings = novel.rankings;
+      for (let rank of rankings) {
+        const date = new Date(rank.on).getDate();
+        if (date === new Date().getDate()) {
+          console.log(
+            `${novel.title} has rank ${rank.rank} on ${new Date(
+              rank.on
+            ).toLocaleString()}  `
+          );
+          count++;
+          break;
+        }
+      }
+    });
+    console.log(`Found ${count} novels with rankings today`);
+  };
+  await testAnyToday();
+};
