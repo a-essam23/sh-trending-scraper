@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env" });
 import fs from "fs";
-import mongoose from "mongoose";
+import mongoose, { mongo } from "mongoose";
 import { Builder, By, until } from "selenium-webdriver";
 import Novel from "./models/novel-model";
 import Options from "./models/options-model";
@@ -14,6 +14,9 @@ export function connect(callback: () => any) {
     process.exit(1);
   });
 
+  mongoose.connection.on("error", (err) => {
+    console.error("Mongoose connection error", err);
+  });
   // Execute the callback when the connection is established
   mongoose.connection.on("connected", () => {
     console.info("Connected to database");
@@ -112,6 +115,7 @@ const updateNovelToDB = async (
   scrapedNovel: IScrapedNovel,
   dateNow: number
 ) => {
+  console.log(novels.length);
   let novelExists = novels.find((n) => n.id === scrapedNovel.id);
   let novel: INovel;
   if (novelExists) {
@@ -234,15 +238,11 @@ const main = async () => {
 connect(async () => {
   // await test();
   // process.exit(1);
-  main()
-    .catch((err) => {
-      console.error(err);
-      fs.appendFileSync("log.txt", `${Date.now()} ${err.message}` + "\n");
-      process.exit();
-    })
-    .finally(() => {
-      process.exit();
-    });
+  main().catch((err) => {
+    console.error(err);
+    fs.appendFileSync("log.txt", `${Date.now()} ${err.message}` + "\n");
+    process.exit();
+  });
 });
 
 const test = async () => {
