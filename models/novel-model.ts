@@ -9,6 +9,10 @@ interface INovel {
   author: string;
   genres: string[];
   cover: string;
+  top1: number;
+  top10: number;
+  top25: number;
+  top100: number;
 }
 
 const novelSchema = new Schema<INovel>(
@@ -25,6 +29,10 @@ const novelSchema = new Schema<INovel>(
     author: { type: String, required: true },
     genres: [{ type: String, required: true }],
     cover: { type: String, required: true },
+    top1: { type: Number, default: 0 },
+    top10: { type: Number, default: 0 },
+    top25: { type: Number, default: 0 },
+    top100: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

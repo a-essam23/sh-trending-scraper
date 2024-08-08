@@ -2,9 +2,9 @@ import { config } from "dotenv";
 config({ path: ".env" });
 import fs from "fs";
 import mongoose, { mongo } from "mongoose";
-import { Builder, By, until } from "selenium-webdriver";
 import Novel from "./models/novel-model";
 import Options from "./models/options-model";
+import { Builder, By, until } from "selenium-webdriver";
 
 const browserType = "chrome";
 export function connect(callback: () => any) {
@@ -33,9 +33,14 @@ interface INovel {
   author: string;
   genres: string[];
   cover: string;
+  top1: number;
+  top10: number;
+  top25: number;
+  top100: number;
 }
 
-interface IScrapedNovel extends Omit<INovel, "rankings"> {
+interface IScrapedNovel
+  extends Omit<INovel, "rankings" | "top1" | "top10" | "top25" | "top100"> {
   ranking: number;
 }
 
@@ -70,8 +75,11 @@ const checkIfAlreadyUpdated = (updatedAt: number) => {
   const oneAMGMTToday = new Date(Date.UTC(year, month, day, 1, 0, 0));
 
   // Check if the script was run after 01:00 GMT of the current day
-  if (updatedAtDate.getDay() === oneAMGMTToday.getDay())
+  if (updatedAtDate.getDay() === oneAMGMTToday.getDay()) {
+    console.log(updatedAtDate.toString());
+    console.log(oneAMGMTToday.toString());
     throw new Error("Last scrape was after trending updated today... exiting.");
+  }
   if (Date.now() < oneAMGMTToday.getTime())
     throw new Error(
       "Trending updates at 00:00 GMT. It takes at least an hour to stabilize. Please try again later."
@@ -106,7 +114,7 @@ const updateUpdatedNow = async (date: number) => {
 const getNovelsFromDB = async () => {
   const novels = await Novel.find({});
   const options = await Options.findOne({ name: "main" });
-  if (!options) throw new Error("No options found");
+  if (!options) throw new Error("No options found with name equal to main");
   return { updatedAt: options?.lastUpdated, novels };
 };
 
@@ -119,19 +127,47 @@ const updateNovelToDB = async (
   let novelExists = novels.find((n) => n.id === scrapedNovel.id);
   let novel: INovel;
   if (novelExists) {
+    const rank = scrapedNovel.ranking;
+    let incStats: Record<string, number> = { top100: 1 };
+    switch (true) {
+      case rank === 1:
+        incStats = { ...incStats, top1: 1 };
+        break;
+      case rank <= 10:
+        incStats = { ...incStats, top10: 1 };
+        break;
+      case rank <= 25:
+        incStats = { ...incStats, top25: 1 };
+        break;
+    }
     novelExists.rankings.push({ rank: scrapedNovel.ranking, on: dateNow });
     console.log(
-      `${novelExists.title} was already been on trending before. Updaing...`
+      `${novelExists.title} was already been on trending before. Updaing...,`
     );
     const novelDoc = await Novel.findOneAndUpdate(
       { title: novelExists.title },
       {
         $push: { rankings: { rank: scrapedNovel.ranking, on: dateNow } },
+        $inc: incStats,
       }
     );
   } else {
+    const stats = { top1: 0, top10: 0, top25: 0, top100: 1 };
+    const rank = +scrapedNovel.ranking;
+    switch (true) {
+      case rank === 1:
+        stats.top1 = 1;
+        break;
+      case rank <= 10:
+        stats.top10 = 1;
+        break;
+      case rank <= 25:
+        stats.top25 = 1;
+        break;
+    }
     novel = {
       ...scrapedNovel,
+      ...stats,
       rankings: [{ rank: scrapedNovel.ranking, on: dateNow }],
     };
     delete (novel as any).ranking;
@@ -146,6 +182,31 @@ const updateNovelToDB = async (
   }
   return;
 };
+
+async function addStatsToNovel() {
+  const noveldocs = await Novel.find({});
+  const allPromises = noveldocs.map(async (novel) => {
+    const ranking = novel.rankings;
+    for (let rank of ranking) {
+      novel.top100++;
+      if (rank.rank === 1) {
+        novel.top1++;
+        console.log(novel.top1);
+        continue;
+      }
+      if (rank.rank <= 10) {
+        novel.top10++;
+        continue;
+      }
+      if (rank.rank <= 25) {
+        novel.top25++;
+        continue;
+      }
+    }
+    await novel.save();
+  });
+  await Promise.all(allPromises);
+}
 
 async function scrapeWebsite(pages: number) {
   const novels: IScrapedNovel[] = [];
@@ -224,11 +285,11 @@ const main = async () => {
   const scrapedNovels = await scrapeWebsite(4);
   if (!scrapedNovels) throw new Error("No new novels found");
   novels["updatedAt"] = dateNow;
-  updateUpdatedNow(dateNow);
+  await updateUpdatedNow(dateNow);
   let counter = 1;
   for (let scrapedNovel of scrapedNovels) {
     console.log(`Working on ${scrapedNovel.title}`);
-    updateNovelToDB(novels["novels"], scrapedNovel, dateNow);
+    await updateNovelToDB(novels["novels"], scrapedNovel, dateNow);
     console.log(`Updated ${counter}/100`);
     counter++;
   }
@@ -236,13 +297,10 @@ const main = async () => {
 };
 
 connect(async () => {
-  // await test();
+  await addStatsToNovel();
   // process.exit(1);
-  main().catch((err) => {
-    console.error(err);
-    fs.appendFileSync("log.txt", `${Date.now()} ${err.message}` + "\n");
-    process.exit();
-  });
+  fs.appendFileSync("log.txt", `${Date.now()} ` + "\n");
+  process.exit();
 });
 
 const test = async () => {
