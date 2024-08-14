@@ -183,26 +183,37 @@ const updateNovelToDB = async (
   return;
 };
 
-async function addStatsToNovel() {
+async function resetNovelsStats() {
   const noveldocs = await Novel.find({});
   const allPromises = noveldocs.map(async (novel) => {
+    console.log(
+      `Resetting stats for ${novel.title} with ${novel.rankings.length} entries`
+    );
+    let top1 = 0;
+    let top10 = 0;
+    let top25 = 0;
+    let top100 = 0;
     const ranking = novel.rankings;
     for (let rank of ranking) {
-      novel.top100++;
+      top100++;
       if (rank.rank === 1) {
-        novel.top1++;
+        top1++;
         console.log(novel.top1);
         continue;
       }
       if (rank.rank <= 10) {
-        novel.top10++;
+        top10++;
         continue;
       }
       if (rank.rank <= 25) {
-        novel.top25++;
+        top25++;
         continue;
       }
     }
+    novel.top1 = top1;
+    novel.top10 = top10;
+    novel.top25 = top25;
+    novel.top100 = top100;
     await novel.save();
   });
   await Promise.all(allPromises);
@@ -296,13 +307,6 @@ const main = async () => {
   fs.writeFileSync("./novels.json", JSON.stringify(novels));
 };
 
-connect(async () => {
-  await addStatsToNovel();
-  // process.exit(1);
-  fs.appendFileSync("log.txt", `${Date.now()} ` + "\n");
-  process.exit();
-});
-
 const test = async () => {
   const noveldocs: INovel[] = await Novel.find({});
   const testDuplicates = () => {
@@ -362,3 +366,15 @@ const test = async () => {
   };
   await testAnyToday();
 };
+
+connect(async () => {
+  main()
+    .then(() => {
+      console.log("Done!");
+      process.exit(0);
+    })
+    .catch((err) => {
+      fs.appendFileSync("log.txt", `${Date.now()} ${err}` + "\n");
+      process.exit(1);
+    });
+});
