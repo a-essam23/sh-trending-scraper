@@ -331,22 +331,22 @@ async function scrapeWebsitePuppeteer(pages: number): Promise<IScrapedNovel[]> {
     for (let pageNum = 1; pageNum <= pages; pageNum++) {
       const browser = await puppeteer.launch({
         headless: true,
-        // args: [
-        //   "--start-maximized",
-        //   "--disable-infobars",
-        //   "--disable-notifications",
-        //   "--disable-gpu",
-        //   "--no-sandbox",
-        //   "--disable-blink-features=AutomationControlled",
-        //   `--user-agent=${user_agent}`,
-        // ],
+        args: [
+          "--start-maximized",
+          //   "--disable-infobars",
+          //   "--disable-notifications",
+          "--disable-gpu",
+          "--no-sandbox",
+          //   "--disable-blink-features=AutomationControlled",
+        ],
       });
       let page = await browser.pages().then((e) => e[0]);
-    await page.setUserAgent(user_agent);
+      await page.setUserAgent(user_agent);
       const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${pageNum}`;
       await page.goto(url, { waitUntil: "networkidle2" });
-      await page.waitForSelector(".wi_fic_wrap");
       console.log(await page.title());
+      await page.waitForSelector(".wi_fic_wrap");
+      
 
       const novelElements = await page.$$(".search_main_box");
       for (const novelElement of novelElements) {
