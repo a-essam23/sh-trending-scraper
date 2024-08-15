@@ -6,8 +6,9 @@ import Novel from "./models/novel-model";
 import Options from "./models/options-model";
 import { Builder, By, until, WebDriver } from "selenium-webdriver";
 import chrome from "selenium-webdriver/chrome";
-import puppeteer from "puppeteer";
-
+import puppeteer from "puppeteer-extra";
+import puppeteerStealth from "puppeteer-extra-plugin-stealth";
+puppeteer.use(puppeteerStealth());
 const browserType = "chrome";
 export function connect(callback: () => any) {
   if (!process.env.DATABASE_URL) throw new Error("No database url");
@@ -325,28 +326,25 @@ async function scrapeWebsitePuppeteer(pages: number): Promise<IScrapedNovel[]> {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.140 Safari/537.36";
 
   try {
-    
     let counter = 1;
-    
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--start-maximized",
+        //   "--disable-infobars",
+        //   "--disable-notifications",
+        "--disable-gpu",
+        "--no-sandbox",
+        //   "--disable-blink-features=AutomationControlled",
+      ],
+    });
+    let page = await browser.pages().then((e) => e[0]);
+    await page.setUserAgent(user_agent);
     for (let pageNum = 1; pageNum <= pages; pageNum++) {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          "--start-maximized",
-          //   "--disable-infobars",
-          //   "--disable-notifications",
-          "--disable-gpu",
-          "--no-sandbox",
-          //   "--disable-blink-features=AutomationControlled",
-        ],
-      });
-      let page = await browser.pages().then((e) => e[0]);
-      await page.setUserAgent(user_agent);
       const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${pageNum}`;
       await page.goto(url, { waitUntil: "networkidle2" });
       console.log(await page.title());
       await page.waitForSelector(".wi_fic_wrap");
-      
 
       const novelElements = await page.$$(".search_main_box");
       for (const novelElement of novelElements) {
@@ -399,9 +397,8 @@ async function scrapeWebsitePuppeteer(pages: number): Promise<IScrapedNovel[]> {
           cover,
         });
       }
-      await browser.close();
     }
-    
+    await browser.close();
     return novels;
   } catch (error) {
     console.error("Error fetching the webpage:", error);
