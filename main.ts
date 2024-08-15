@@ -126,7 +126,6 @@ const updateNovelToDB = async (
   scrapedNovel: IScrapedNovel,
   dateNow: number
 ) => {
-  console.log(novels.length);
   let novelExists = novels.find((n) => n.id === scrapedNovel.id);
   let novel: INovel;
   if (novelExists) {
@@ -145,7 +144,7 @@ const updateNovelToDB = async (
     }
     novelExists.rankings.push({ rank: scrapedNovel.ranking, on: dateNow });
     console.log(
-      `${novelExists.title} was already been on trending before. Updaing...,`
+      `${novelExists.title} has already been on trending before. Updaing...,`
     );
     const novelDoc = await Novel.findOneAndUpdate(
       { title: novelExists.title },
@@ -177,7 +176,7 @@ const updateNovelToDB = async (
     delete (novel as any)._id;
     novels.push(novel);
     console.log(
-      `This is '${novel.title}' first time one trending. Adding to Database...`
+      `This is '${novel.title}' first time on trending. Adding to Database...`
     );
     const doc = await Novel.create(novel);
     novel._id = doc._id.toString();
@@ -406,22 +405,13 @@ async function scrapeWebsitePuppeteer(pages: number): Promise<IScrapedNovel[]> {
   }
 }
 
-// Example usage
-scrapeWebsitePuppeteer(3)
-  .then((novels) => {
-    console.log("Scraped novels:", novels);
-  })
-  .catch((error) => {
-    console.error("Error:", error);
-  });
-
 const main = async () => {
   const dateNow = Date.now();
   console.log(`Running at ${new Date(dateNow).toLocaleString()}`);
   const novels = await getNovelsFromDB();
   checkIfAlreadyUpdated(novels.updatedAt);
 
-  const scrapedNovels = await scrapeWebsite(4);
+  const scrapedNovels = await scrapeWebsitePuppeteer(4);
   if (!scrapedNovels) throw new Error("No new novels found");
   novels["updatedAt"] = dateNow;
   await updateUpdatedNow(dateNow);
@@ -495,14 +485,14 @@ const test = async () => {
   await testAnyToday();
 };
 
-// connect(async () => {
-//   main()
-//     .then(() => {
-//       console.log("Done!");
-//       process.exit(0);
-//     })
-//     .catch((err) => {
-//       fs.appendFileSync("log.txt", `${Date.now()} ${err}` + "\n");
-//       process.exit(1);
-//     });
-// });
+connect(async () => {
+  main()
+    .then(() => {
+      console.log("Done!");
+      process.exit(0);
+    })
+    .catch((err) => {
+      fs.appendFileSync("log.txt", `${Date.now()} ${err}` + "\n");
+      process.exit(1);
+    });
+});
