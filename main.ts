@@ -5,6 +5,7 @@ import mongoose, { mongo } from "mongoose";
 import Novel from "./models/novel-model";
 import Options from "./models/options-model";
 import { Builder, By, until } from "selenium-webdriver";
+import chrome from "selenium-webdriver/chrome";
 
 const browserType = "chrome";
 export function connect(callback: () => any) {
@@ -220,12 +221,30 @@ async function resetNovelsStats() {
 }
 
 async function scrapeWebsite(pages: number) {
+  let driver: WebDriver;
   const novels: IScrapedNovel[] = [];
+  const user_agent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.140 Safari/537.36";
 
   try {
     let counter = 1;
     for (let page = 1; page < pages + 1; page++) {
-      const driver = await new Builder().forBrowser(browserType).build();
+      const chrome_options = new chrome.Options();
+      chrome_options.addArguments("--headless");
+      chrome_options.addArguments("--disable-gpu");
+      chrome_options.addArguments(`user-agent=${user_agent}`);
+      if (process.env?.SELENIUM_REMOTE_URL) {
+        driver = await new Builder()
+          .usingServer(process.env.SELENIUM_REMOTE_URL)
+          .forBrowser(browserType)
+          .setChromeOptions(chrome_options)
+          .build();
+      } else {
+        driver = await new Builder()
+          .forBrowser(browserType)
+          .setChromeOptions(chrome_options)
+          .build();
+      }
 
       const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${page}`;
       await driver.get(url);
