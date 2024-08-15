@@ -16,6 +16,7 @@
     "dotenv": "^16.4.5",
     "firebase": "^10.12.2",
     "mongoose": "^8.4.4",
+    "puppeteer": "^23.1.0",
     "selenium-webdriver": "^4.22.0",
     "ts-node": "^10.9.2"
   }

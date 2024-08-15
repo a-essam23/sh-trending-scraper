@@ -4,8 +4,9 @@ import fs from "fs";
 import mongoose, { mongo } from "mongoose";
 import Novel from "./models/novel-model";
 import Options from "./models/options-model";
-import { Builder, By, until } from "selenium-webdriver";
+import { Builder, By, until, WebDriver } from "selenium-webdriver";
 import chrome from "selenium-webdriver/chrome";
+import puppeteer from "puppeteer";
 
 const browserType = "chrome";
 export function connect(callback: () => any) {
@@ -229,26 +230,38 @@ async function scrapeWebsite(pages: number) {
   try {
     let counter = 1;
     for (let page = 1; page < pages + 1; page++) {
-      const chrome_options = new chrome.Options();
-      chrome_options.addArguments("--headless");
-      chrome_options.addArguments("--disable-gpu");
-      chrome_options.addArguments(`user-agent=${user_agent}`);
+      const options = new chrome.Options();
+      options.addArguments("headless");
+      options.addArguments("start-maximized");
+      options.excludeSwitches("enable-automation");
+      options.addArguments(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+      );
+      options.addArguments("accept-language=en-US,en;q=0.9");
+      options.addArguments("disable-infobars");
+      options.addArguments("disable-notifications");
+      options.addArguments("--disable-gpu");
+      options.addArguments("--no-sandbox");
+      options.addArguments("disable-blink-features=AutomationControlled");
+
       if (process.env?.SELENIUM_REMOTE_URL) {
         driver = await new Builder()
           .usingServer(process.env.SELENIUM_REMOTE_URL)
           .forBrowser(browserType)
-          .setChromeOptions(chrome_options)
+          .setChromeOptions(options)
           .build();
       } else {
         driver = await new Builder()
           .forBrowser(browserType)
-          .setChromeOptions(chrome_options)
+          .setChromeOptions(options)
           .build();
       }
-
       const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${page}`;
+      await driver.executeScript(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+      );
       await driver.get(url);
-
+      console.log(await driver.getTitle());
       await driver.wait(
         until.elementLocated(By.className("wi_fic_wrap")),
         900 * 1000
@@ -305,6 +318,105 @@ async function scrapeWebsite(pages: number) {
     console.error("Error fetching the webpage:", error);
   }
 }
+
+async function scrapeWebsitePuppeteer(pages: number): Promise<IScrapedNovel[]> {
+  const novels: IScrapedNovel[] = [];
+  const user_agent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.140 Safari/537.36";
+
+  try {
+    
+    let counter = 1;
+    
+    for (let pageNum = 1; pageNum <= pages; pageNum++) {
+      const browser = await puppeteer.launch({
+        headless: true,
+        // args: [
+        //   "--start-maximized",
+        //   "--disable-infobars",
+        //   "--disable-notifications",
+        //   "--disable-gpu",
+        //   "--no-sandbox",
+        //   "--disable-blink-features=AutomationControlled",
+        //   `--user-agent=${user_agent}`,
+        // ],
+      });
+      let page = await browser.pages().then((e) => e[0]);
+    await page.setUserAgent(user_agent);
+      const url = `https://www.scribblehub.com/series-ranking/?sort=5&order=1&pg=${pageNum}`;
+      await page.goto(url, { waitUntil: "networkidle2" });
+      await page.waitForSelector(".wi_fic_wrap");
+      console.log(await page.title());
+
+      const novelElements = await page.$$(".search_main_box");
+      for (const novelElement of novelElements) {
+        const titleElement = await novelElement.$(".search_title");
+        const titleHref = await titleElement?.$("a");
+        const title = (await titleHref!.evaluate(
+          (el) => el.textContent,
+          titleHref
+        ))!.replace("’", "'");
+        const link = await titleHref!.evaluate(
+          (el) => el.getAttribute("href"),
+          titleHref
+        );
+
+        const rankingEl = await titleElement?.$(".genre_rank");
+        const rankingText = await rankingEl!.evaluate((el) => el.textContent);
+        const ranking = +rankingText!.replace("#", "");
+        const id = await titleElement!.evaluate((el) =>
+          el.querySelector("span")?.getAttribute("id")
+        );
+        const cover = await novelElement.$eval(".search_img img", (img) =>
+          img.getAttribute("src")
+        );
+        const author = (await novelElement.$eval(
+          "span[title*='Author']",
+          (el) => el.textContent
+        )) as string;
+        const genreElements = await novelElement.$$(".search_genre a");
+        const genres = [];
+        for (const genreElement of genreElements) {
+          const genre = await page.evaluate(
+            (el) => el.textContent,
+            genreElement
+          );
+          genres.push(genre || "");
+        }
+
+        console.log(`Scraped ${counter}/${25 * pages}`);
+        counter++;
+        if (!id || !link || !cover)
+          throw new Error("Error: id/link/cover is missing");
+        novels.push({
+          _id: id.replace("sid", ""),
+          id: id.replace("sid", ""),
+          title,
+          link,
+          author,
+          genres,
+          ranking,
+          cover,
+        });
+      }
+      await browser.close();
+    }
+    
+    return novels;
+  } catch (error) {
+    console.error("Error fetching the webpage:", error);
+    return [];
+  }
+}
+
+// Example usage
+scrapeWebsitePuppeteer(3)
+  .then((novels) => {
+    console.log("Scraped novels:", novels);
+  })
+  .catch((error) => {
+    console.error("Error:", error);
+  });
 
 const main = async () => {
   const dateNow = Date.now();
@@ -386,14 +498,14 @@ const test = async () => {
   await testAnyToday();
 };
 
-connect(async () => {
-  main()
-    .then(() => {
-      console.log("Done!");
-      process.exit(0);
-    })
-    .catch((err) => {
-      fs.appendFileSync("log.txt", `${Date.now()} ${err}` + "\n");
-      process.exit(1);
-    });
-});
+// connect(async () => {
+//   main()
+//     .then(() => {
+//       console.log("Done!");
+//       process.exit(0);
+//     })
+//     .catch((err) => {
+//       fs.appendFileSync("log.txt", `${Date.now()} ${err}` + "\n");
+//       process.exit(1);
+//     });
+// });
